@@ -17,8 +17,8 @@ public class DataParser {
         JSONArray jsonArray = null;
         JSONObject jsonObject;
 
-        try {;
-            jsonObject = new JSONObject((String) jsonData);
+        try {
+            jsonObject = new JSONObject(jsonData);
             jsonArray = jsonObject.getJSONArray("results");
         } catch (JSONException e) {
             e.printStackTrace();
@@ -30,7 +30,7 @@ public class DataParser {
     private List<HashMap<String, String>> getPlaces(JSONArray jsonArray) {
         int placesCount = jsonArray.length();
         List<HashMap<String, String>> placesList = new ArrayList<>();
-        HashMap<String, String> placeMap = null;
+        HashMap<String, String> placeMap;
 
         for (int i = 0; i < placesCount; i++) {
             try {

@@ -65,7 +65,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         btnSearch.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                LatLng center = mMap.getCameraPosition().target;
+                LatLng center = mMap.getCameraPosition().target;                                    //get current camera position of the google map
 
                 String url = getUrl(center.latitude, center.longitude, "restaurant");
                 Object[] DataTransfer = new Object[2];
@@ -134,7 +134,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                     Manifest.permission.ACCESS_FINE_LOCATION)
                     == PackageManager.PERMISSION_GRANTED) {
                 buildGoogleApiClient();
-                mMap.setMyLocationEnabled(true);                                //allows user to interact with current location
+                mMap.setMyLocationEnabled(true);                                                    //allows user to interact with current location
             }
         }
         else {
@@ -144,10 +144,10 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     }
 
     protected synchronized void buildGoogleApiClient() {
-        mGoogleApiClient = new GoogleApiClient.Builder(this)                    //used to configure client
-                .addConnectionCallbacks(this)                                   //provides callbacks that are called when client connected or disconnected.
-                .addOnConnectionFailedListener(this)                            //covers scenarios of failed attempt of connect client to service
-                .addApi(LocationServices.API)                                   //adds the LocationServices API endpoint from Google Play Services
+        mGoogleApiClient = new GoogleApiClient.Builder(this)                                        //used to configure client
+                .addConnectionCallbacks(this)                                                       //provides callbacks that are called when client connected or disconnected.
+                .addOnConnectionFailedListener(this)                                                //covers scenarios of failed attempt of connect client to service
+                .addApi(LocationServices.API)                                                       //adds the LocationServices API endpoint from Google Play Services
                 .build();
         mGoogleApiClient.connect();
     }
@@ -193,7 +193,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         mCurrLocationMarker = mMap.addMarker(markerOptions);
         mCurrLocationMarker.setTitle("My Location");
 
-        //move map camera
+        //move map camera to current location
         mMap.moveCamera(CameraUpdateFactory.newLatLng(latLng));
         mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(latLng.latitude, latLng.longitude), 15.0f));
 
@@ -207,6 +207,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             public void onCameraMove() {
                 Marker myPosition = mCurrLocationMarker;//get your marker
                 LatLngBounds bounds = mMap.getProjection().getVisibleRegion().latLngBounds;
+
+                //check if marker is within the visible area of the map
                 if(bounds.contains(myPosition.getPosition())){
                     //point is visible
                     btnSearch.setVisibility(View.GONE);
@@ -217,6 +219,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             }
         });
 
+
+        //get nearby restaurants around your location
         String url = getUrl(latitude, longitude, "restaurant");
         Object[] DataTransfer = new Object[2];
         DataTransfer[0] = mMap;
@@ -227,9 +231,12 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
     @Override
     public void onConnectionFailed(ConnectionResult connectionResult) {
-
+        Toast.makeText(getBaseContext(), connectionResult.getErrorMessage(), Toast.LENGTH_SHORT).show();
     }
 
+    /**
+     * checks permission of the device on runtime
+     * */
     @Override
     public void onRequestPermissionsResult(int requestCode,
                                            String permissions[], int[] grantResults) {
@@ -268,7 +275,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         googlePlacesUrl.append("location=" + latitude + "," + longitude);
         googlePlacesUrl.append("&radius=" + PROXIMITY_RADIUS);
         googlePlacesUrl.append("&type=" + nearbyPlace);
-        googlePlacesUrl.append("&key=" + "AIzaSyBF2xGNa4uu3KBxjp1AGg9fEVoPaqAeh6o");
+        googlePlacesUrl.append("&key=" + "AIzaSyBF2xGNa4uu3KBxjp1AGg9fEVoPaqAeh6o");                //Google Places API Key
         googlePlacesUrl.append("&sensor=true");
         return (googlePlacesUrl.toString());
     }
