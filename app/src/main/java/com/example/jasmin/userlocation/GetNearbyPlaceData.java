@@ -3,43 +3,63 @@ package com.example.jasmin.userlocation;
 import android.os.AsyncTask;
 import android.util.Log;
 
+import com.google.android.gms.maps.CameraUpdate;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.LatLngBounds;
+import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
 
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
+
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.Response;
 
 /**
  * Created by Jasmin on 4/18/2017.
  */
 public class GetNearbyPlaceData extends AsyncTask<Object, String, String> {
 
-    private String googlePlacesData;
+    private String data;
     private GoogleMap mMap;
     private String url;
+    private Marker mLocation;
 
     @Override
     protected String doInBackground(Object... params) {
-        try {
-            mMap = (GoogleMap) params[0];
-            url = (String) params[1];
+        mMap = (GoogleMap) params[0];
+        url = (String) params[1];
 
-            DownloadUrl downloadUrl = new DownloadUrl();
-            googlePlacesData = downloadUrl.readUrl(url);
-        } catch (Exception e) {
-            Log.d("GooglePlacesReadTask", e.toString());
+        //Instantiate client
+        OkHttpClient client = new OkHttpClient();
+
+        Request request = new Request.Builder()
+                .url(url)
+                .build();
+
+        Response response;
+        try {
+            //the request will be executed and the response - a JSON Object -  will be stored to String 'sResult'
+            response = client.newCall(request).execute();
+            data = response.body().string();
+
+            return data;
+        } catch (IOException e) {
+            e.printStackTrace();
         }
-        return googlePlacesData;
+
+        return null;
     }
 
     @Override
     protected void onPostExecute(String result) {
-        List<HashMap<String, String>> nearbyPlacesList = null;
         DataParser dataParser = new DataParser();
-        nearbyPlacesList =  dataParser.parse(result);
+        List<HashMap<String, String>> nearbyPlacesList =  dataParser.parse(result);
         ShowNearbyPlaces(nearbyPlacesList);
     }
 
@@ -55,12 +75,24 @@ public class GetNearbyPlaceData extends AsyncTask<Object, String, String> {
             LatLng latLng = new LatLng(lat, lng);
             markerOptions.position(latLng);
             markerOptions.title(placeName + " : " + vicinity);
-            mMap.addMarker(markerOptions);
+            mLocation = mMap.addMarker(markerOptions);
+            MapsActivity.markers.add(mLocation);
             markerOptions.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED));
 
-            //move map camera
-            mMap.moveCamera(CameraUpdateFactory.newLatLng(latLng));
-            mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(latLng.latitude, latLng.longitude), 15.0f));
+            LatLngBounds.Builder builder = new LatLngBounds.Builder();
+            for (Marker marker : MapsActivity.markers) {
+                builder.include(marker.getPosition());
+            }
+            LatLngBounds bounds = builder.build();
+
+            int padding = 0; // offset from edges of the map in pixels
+            CameraUpdate cu = CameraUpdateFactory.newLatLngBounds(bounds, padding);
+
+            mMap.animateCamera(cu);
+
+//            //move map camera
+//            mMap.moveCamera(CameraUpdateFactory.newLatLng(latLng));
+//            mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(latLng.latitude, latLng.longitude), 14.5f));
         }
     }
 }

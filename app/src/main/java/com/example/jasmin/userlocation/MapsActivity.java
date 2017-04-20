@@ -5,6 +5,9 @@
 package com.example.jasmin.userlocation;
 
 import android.Manifest;
+import android.app.AlertDialog;
+import android.app.DialogFragment;
+import android.content.DialogInterface;
 import android.content.pm.PackageManager;
 import android.graphics.Point;
 import android.location.Location;
@@ -14,11 +17,16 @@ import android.support.v4.app.FragmentActivity;
 import android.os.Bundle;
 import android.support.v4.content.ContextCompat;
 import android.util.Log;
+import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.Button;
+import android.widget.ImageButton;
+import android.widget.SeekBar;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import com.google.android.gms.common.ConnectionResult;
+import com.google.android.gms.common.GoogleApiAvailability;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.location.LocationListener;
 import com.google.android.gms.location.LocationRequest;
@@ -34,6 +42,7 @@ import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.gms.maps.model.VisibleRegion;
 
+import java.util.ArrayList;
 import java.util.concurrent.ExecutionException;
 
 public class MapsActivity extends FragmentActivity implements OnMapReadyCallback,
@@ -42,7 +51,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         LocationListener {
 
     public static final int MY_PERMISSIONS_REQUEST_LOCATION = 99;
-    private int PROXIMITY_RADIUS = 1000;
+    public static final ArrayList<Marker> markers = new ArrayList<>();
+    private int radius = 1000;
 
     private GoogleMap mMap;
     private GoogleApiClient mGoogleApiClient;
@@ -53,35 +63,56 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     private double latitude;
     private double longitude;
 
-    private Button btnSearch;
+    private ImageButton ibSettings;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_maps);
 
-        btnSearch = (Button) findViewById(R.id.btnSearchArea);
-        btnSearch.setVisibility(View.GONE);
-        btnSearch.setOnClickListener(new View.OnClickListener() {
+        ibSettings = (ImageButton) findViewById(R.id.ibSettings);
+
+        if (android.os.Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            checkLocationPermission();
+        }
+
+        //Check if Google Play Services Available or not
+        if (!CheckGooglePlayServices()) {
+            Log.d("onCreate", "Finishing test case since Google Play Services are not available");
+            finish();
+        }
+        else {
+            Log.d("onCreate","Google Play Services available.");
+        }
+
+        ibSettings.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                LatLng center = mMap.getCameraPosition().target;                                    //get current camera position of the google map
-
-                String url = getUrl(center.latitude, center.longitude, "restaurant");
-                Object[] DataTransfer = new Object[2];
-                DataTransfer[0] = mMap;
-                DataTransfer[1] = url;
-                GetNearbyPlaceData getNearbyPlacesData = new GetNearbyPlaceData();
-                getNearbyPlacesData.execute(DataTransfer);
+                DialogFragment df = new SetRadiusDialog();
+                df.show(getFragmentManager(), "");
             }
         });
-
-        checkLocationPermission();
 
         // Obtain the SupportMapFragment and get notified when the map is ready to be used.
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.map);
         mapFragment.getMapAsync(this);
+    }
+
+    /**
+     * checks if Google Play Services available or not
+     * */
+    private boolean CheckGooglePlayServices() {
+        GoogleApiAvailability googleAPI = GoogleApiAvailability.getInstance();
+        int result = googleAPI.isGooglePlayServicesAvailable(this);
+        if(result != ConnectionResult.SUCCESS) {
+            if(googleAPI.isUserResolvableError(result)) {
+                googleAPI.getErrorDialog(this, result,
+                        0).show();
+            }
+            return false;
+        }
+        return true;
     }
 
     /**
@@ -125,7 +156,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     @Override
     public void onMapReady(GoogleMap googleMap) {
         mMap = googleMap;
-
         mMap.setMapType(GoogleMap.MAP_TYPE_NORMAL);
 
         //Initialize Google Play Services
@@ -141,6 +171,10 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             buildGoogleApiClient();
             mMap.setMyLocationEnabled(true);
         }
+    }
+
+    public void setRadius(int rad) {
+        radius = rad * 1000;
     }
 
     protected synchronized void buildGoogleApiClient() {
@@ -192,41 +226,16 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         markerOptions.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_MAGENTA));
         mCurrLocationMarker = mMap.addMarker(markerOptions);
         mCurrLocationMarker.setTitle("My Location");
+        markers.add(mCurrLocationMarker);
 
         //move map camera to current location
         mMap.moveCamera(CameraUpdateFactory.newLatLng(latLng));
-        mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(latLng.latitude, latLng.longitude), 15.0f));
+        mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(latLng.latitude, latLng.longitude), 17.0f));
 
         //stop location updates
         if (mGoogleApiClient != null) {
             LocationServices.FusedLocationApi.removeLocationUpdates(mGoogleApiClient, this);
         }
-
-        mMap.setOnCameraMoveListener(new GoogleMap.OnCameraMoveListener() {
-            @Override
-            public void onCameraMove() {
-                Marker myPosition = mCurrLocationMarker;//get your marker
-                LatLngBounds bounds = mMap.getProjection().getVisibleRegion().latLngBounds;
-
-                //check if marker is within the visible area of the map
-                if(bounds.contains(myPosition.getPosition())){
-                    //point is visible
-                    btnSearch.setVisibility(View.GONE);
-                }else{
-                    //not visible
-                    btnSearch.setVisibility(View.VISIBLE);
-                }
-            }
-        });
-
-
-        //get nearby restaurants around your location
-        String url = getUrl(latitude, longitude, "restaurant");
-        Object[] DataTransfer = new Object[2];
-        DataTransfer[0] = mMap;
-        DataTransfer[1] = url;
-        GetNearbyPlaceData getNearbyPlacesData = new GetNearbyPlaceData();
-        getNearbyPlacesData.execute(DataTransfer);
     }
 
     @Override
@@ -264,19 +273,29 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 }
                 return;
             }
-
-            // other 'case' lines to check for other permissions this app might request.
-            //You can add here other case statements according to your requirement.
         }
     }
 
+    public void getNearbyPlaces() {
+        //get nearby restaurants around your location
+        String url = getUrl(latitude, longitude, "restaurant");
+        Object[] DataTransfer = new Object[2];
+        DataTransfer[0] = mMap;
+        DataTransfer[1] = url;
+        GetNearbyPlaceData getNearbyPlacesData = new GetNearbyPlaceData();
+        getNearbyPlacesData.execute(DataTransfer);
+    }
+    /**
+     * get information about nearby restaurant on google maps
+     * */
     private String getUrl(final double latitude, final double longitude, String nearbyPlace) {
         StringBuilder googlePlacesUrl = new StringBuilder("https://maps.googleapis.com/maps/api/place/nearbysearch/json?");
         googlePlacesUrl.append("location=" + latitude + "," + longitude);
-        googlePlacesUrl.append("&radius=" + PROXIMITY_RADIUS);
+        googlePlacesUrl.append("&radius=" + radius);
         googlePlacesUrl.append("&type=" + nearbyPlace);
         googlePlacesUrl.append("&key=" + "AIzaSyBF2xGNa4uu3KBxjp1AGg9fEVoPaqAeh6o");                //Google Places API Key
         googlePlacesUrl.append("&sensor=true");
+
         return (googlePlacesUrl.toString());
     }
 }
