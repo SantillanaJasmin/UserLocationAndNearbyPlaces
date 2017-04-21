@@ -13,6 +13,7 @@ import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
@@ -59,11 +60,11 @@ public class GetNearbyPlaceData extends AsyncTask<Object, String, String> {
     @Override
     protected void onPostExecute(String result) {
         DataParser dataParser = new DataParser();
-        List<HashMap<String, String>> nearbyPlacesList =  dataParser.parse(result);
-        ShowNearbyPlaces(nearbyPlacesList);
+        List<HashMap<String, String>> nearbyRestaurants =  dataParser.parse(result);
+        showNearbyRestaurants(nearbyRestaurants);
     }
 
-    private void ShowNearbyPlaces(List<HashMap<String, String>> nearbyPlacesList) {
+    private void showNearbyRestaurants(List<HashMap<String, String>> nearbyPlacesList) {
         for (int i = 0; i < nearbyPlacesList.size(); i++) {
             MarkerOptions markerOptions = new MarkerOptions();
             HashMap<String, String> googlePlace = nearbyPlacesList.get(i);
@@ -76,23 +77,19 @@ public class GetNearbyPlaceData extends AsyncTask<Object, String, String> {
             markerOptions.position(latLng);
             markerOptions.title(placeName + " : " + vicinity);
             mLocation = mMap.addMarker(markerOptions);
-            MapsActivity.markers.add(mLocation);
+            Constants.markers.add(mLocation);
             markerOptions.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED));
-
-            LatLngBounds.Builder builder = new LatLngBounds.Builder();
-            for (Marker marker : MapsActivity.markers) {
-                builder.include(marker.getPosition());
-            }
-            LatLngBounds bounds = builder.build();
-
-            int padding = 0; // offset from edges of the map in pixels
-            CameraUpdate cu = CameraUpdateFactory.newLatLngBounds(bounds, padding);
-
-            mMap.animateCamera(cu);
-
-//            //move map camera
-//            mMap.moveCamera(CameraUpdateFactory.newLatLng(latLng));
-//            mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(latLng.latitude, latLng.longitude), 14.5f));
         }
+
+        LatLngBounds.Builder builder = new LatLngBounds.Builder();
+        for (Marker marker : Constants.markers) {
+            builder.include(marker.getPosition());
+        }
+        LatLngBounds bounds = builder.build();
+
+        int padding = 0;                                                                            // offset from edges of the map in pixels
+        CameraUpdate cu = CameraUpdateFactory.newLatLngBounds(bounds, padding);
+
+        mMap.animateCamera(cu);
     }
 }

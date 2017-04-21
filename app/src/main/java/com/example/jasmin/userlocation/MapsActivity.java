@@ -5,11 +5,8 @@
 package com.example.jasmin.userlocation;
 
 import android.Manifest;
-import android.app.AlertDialog;
 import android.app.DialogFragment;
-import android.content.DialogInterface;
 import android.content.pm.PackageManager;
-import android.graphics.Point;
 import android.location.Location;
 import android.os.Build;
 import android.support.v4.app.ActivityCompat;
@@ -17,12 +14,8 @@ import android.support.v4.app.FragmentActivity;
 import android.os.Bundle;
 import android.support.v4.content.ContextCompat;
 import android.util.Log;
-import android.view.LayoutInflater;
 import android.view.View;
-import android.widget.Button;
 import android.widget.ImageButton;
-import android.widget.SeekBar;
-import android.widget.TextView;
 import android.widget.Toast;
 
 import com.google.android.gms.common.ConnectionResult;
@@ -37,31 +30,19 @@ import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.LatLng;
-import com.google.android.gms.maps.model.LatLngBounds;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
-import com.google.android.gms.maps.model.VisibleRegion;
-
-import java.util.ArrayList;
-import java.util.concurrent.ExecutionException;
 
 public class MapsActivity extends FragmentActivity implements OnMapReadyCallback,
         GoogleApiClient.ConnectionCallbacks,
         GoogleApiClient.OnConnectionFailedListener,
         LocationListener {
 
-    public static final int MY_PERMISSIONS_REQUEST_LOCATION = 99;
-    public static final ArrayList<Marker> markers = new ArrayList<>();
-    private int radius = 1000;
-
     private GoogleMap mMap;
     private GoogleApiClient mGoogleApiClient;
     private LocationRequest mLocationRequest;
     private Location mLastLocation;
     private Marker mCurrLocationMarker;
-
-    private double latitude;
-    private double longitude;
 
     private ImageButton ibSettings;
 
@@ -71,6 +52,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         setContentView(R.layout.activity_maps);
 
         ibSettings = (ImageButton) findViewById(R.id.ibSettings);
+        ibSettings.getBackground().setAlpha(200);                                                   //sets the opacity of background color
 
         if (android.os.Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             checkLocationPermission();
@@ -85,6 +67,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             Log.d("onCreate","Google Play Services available.");
         }
 
+        //An alert dialog will be displayed to ask the user for the radius
         ibSettings.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -135,14 +118,12 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 //Prompt the user once explanation has been shown
                 ActivityCompat.requestPermissions(this,
                         new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
-                        MY_PERMISSIONS_REQUEST_LOCATION);
-
-
+                        Constants.MY_PERMISSIONS_REQUEST_LOCATION);
             } else {
                 // No explanation needed, we can request the permission.
                 ActivityCompat.requestPermissions(this,
                         new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
-                        MY_PERMISSIONS_REQUEST_LOCATION);
+                        Constants.MY_PERMISSIONS_REQUEST_LOCATION);
             }
             return false;
         } else {
@@ -171,10 +152,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             buildGoogleApiClient();
             mMap.setMyLocationEnabled(true);
         }
-    }
-
-    public void setRadius(int rad) {
-        radius = rad * 1000;
     }
 
     protected synchronized void buildGoogleApiClient() {
@@ -215,22 +192,23 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             mCurrLocationMarker.remove();
         }
 
-        latitude = location.getLatitude();
-        longitude = location.getLongitude();
+        //Get the lat and long of current location
+        Constants.latitude = location.getLatitude();
+        Constants.longitude = location.getLongitude();
 
         //Place current location marker
-        LatLng latLng = new LatLng(latitude, longitude);
+        LatLng latLng = new LatLng(Constants.latitude, Constants.longitude);
         MarkerOptions markerOptions = new MarkerOptions();
         markerOptions.position(latLng);
         markerOptions.title("Current Position");
         markerOptions.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_MAGENTA));
         mCurrLocationMarker = mMap.addMarker(markerOptions);
         mCurrLocationMarker.setTitle("My Location");
-        markers.add(mCurrLocationMarker);
+        Constants.markers.add(mCurrLocationMarker);
 
         //move map camera to current location
         mMap.moveCamera(CameraUpdateFactory.newLatLng(latLng));
-        mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(latLng.latitude, latLng.longitude), 17.0f));
+        mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(latLng.latitude, latLng.longitude), 17.0f));
 
         //stop location updates
         if (mGoogleApiClient != null) {
@@ -250,7 +228,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     public void onRequestPermissionsResult(int requestCode,
                                            String permissions[], int[] grantResults) {
         switch (requestCode) {
-            case MY_PERMISSIONS_REQUEST_LOCATION: {
+            case Constants.MY_PERMISSIONS_REQUEST_LOCATION: {
                 // If request is cancelled, the result arrays are empty.
                 if (grantResults.length > 0
                         && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
@@ -276,22 +254,32 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         }
     }
 
-    public void getNearbyPlaces() {
-        //get nearby restaurants around your location
-        String url = getUrl(latitude, longitude, "restaurant");
-        Object[] DataTransfer = new Object[2];
-        DataTransfer[0] = mMap;
-        DataTransfer[1] = url;
-        GetNearbyPlaceData getNearbyPlacesData = new GetNearbyPlaceData();
-        getNearbyPlacesData.execute(DataTransfer);
+    public void setRadius(int rad) {
+        Constants.currentRadius = rad * 1000;
     }
+
+    /**
+     * get nearby restaurants around your location
+     * */
+    public void getNearbyPlaces() {
+        String url = getUrl(Constants.latitude, Constants.longitude, "restaurant");
+
+        //stores the Map and URL that will be used to get the nearby restaurants around the current location
+        Object[] data = new Object[2];
+        data[0] = mMap;
+        data[1] = url;
+
+        GetNearbyPlaceData getNearbyPlacesData = new GetNearbyPlaceData();
+        getNearbyPlacesData.execute(data);
+    }
+
     /**
      * get information about nearby restaurant on google maps
      * */
     private String getUrl(final double latitude, final double longitude, String nearbyPlace) {
         StringBuilder googlePlacesUrl = new StringBuilder("https://maps.googleapis.com/maps/api/place/nearbysearch/json?");
         googlePlacesUrl.append("location=" + latitude + "," + longitude);
-        googlePlacesUrl.append("&radius=" + radius);
+        googlePlacesUrl.append("&radius=" + Constants.currentRadius);
         googlePlacesUrl.append("&type=" + nearbyPlace);
         googlePlacesUrl.append("&key=" + "AIzaSyBF2xGNa4uu3KBxjp1AGg9fEVoPaqAeh6o");                //Google Places API Key
         googlePlacesUrl.append("&sensor=true");
